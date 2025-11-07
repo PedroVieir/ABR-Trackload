@@ -1,6 +1,6 @@
 import { useState } from "react";
 import imageCompression from "browser-image-compression";
-import { FaArrowLeft, FaCheck } from "react-icons/fa";
+import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import FileInput from "../components/FileInput";
 import FeedbackMessage from "../components/FeedbackMessage";
 
@@ -8,7 +8,7 @@ export default function StepCanhoto({
   documentNumber,
   setFormData,
   onBack,
-  onFinish,
+  onNext,
 }) {
   const [file, setFile] = useState(null);
   const [feedback, setFeedback] = useState(null);
@@ -33,7 +33,7 @@ export default function StepCanhoto({
       setFile(compressed);
       setFeedback({
         type: "success",
-        text: "Foto do Canhoto carregada com sucesso.",
+        text: "Foto do canhoto carregada com sucesso.",
       });
     } catch {
       setFeedback({ type: "error", text: "Erro ao processar imagem." });
@@ -46,20 +46,20 @@ export default function StepCanhoto({
     setFile(null);
     setFeedback({
       type: "warning",
-      text: "Foto do Canhoto removida com sucesso.",
+      text: "Foto do canhoto removida com sucesso.",
     });
   };
 
-  const handleFinish = () => {
+  const handleNextStep = () => {
     if (!file) {
       setFeedback({
         type: "warning",
-        text: "Envie a foto do canhoto antes de finalizar.",
+        text: "Envie a foto do canhoto antes de continuar.",
       });
       return;
     }
     setFormData((prev) => ({ ...prev, canhoto: file }));
-    onFinish();
+    onNext();
   };
 
   return (
@@ -82,11 +82,11 @@ export default function StepCanhoto({
         </button>
         <button
           type="button"
-          onClick={handleFinish}
+          onClick={handleNextStep}
           disabled={loading}
           className="primary-btn"
         >
-          {loading ? "Carregando..." : <>Finalizar e Enviar <FaCheck /></>}
+          {loading ? "Carregando..." : <>Próxima Etapa <FaArrowRight /></>}
         </button>
       </div>
 

@@ -270,6 +270,202 @@ button:disabled {
   animation: fadeIn 0.3s ease;
 }
 
+/* ============================================================
+   NOVAS SEÇÕES — UPLOADFLOW PREVIEW + CONFIRMAÇÃO FINAL
+   ============================================================ */
+
+.summary-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: center;
+}
+
+.summary-container h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 0.3rem;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 15px;
+  margin: 25px 0;
+  width: 100%;
+}
+
+.preview-card {
+  background: #f5f5f5;
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.preview-card:hover {
+  transform: scale(1.03);
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.12);
+}
+
+.preview-card img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-bottom: 1px solid #ddd;
+}
+
+.preview-card span {
+  display: block;
+  font-size: 0.9rem;
+  margin: 6px 0;
+  color: #333;
+  font-weight: 500;
+}
+
+.preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+.preview-modal img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 10px;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.4);
+}
+
+.confirm-btn {
+  margin-top: 15px;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--primary);
+  border-radius: var(--radius);
+  padding: 1rem 1.5rem;
+  width: 100%;
+}
+
+.confirm-btn:hover {
+  background: var(--primary-dark);
+}
+
+.feedback {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.feedback.success {
+  color: #1b5e20;
+}
+
+.feedback.warning {
+  color: #b26a00;
+}
+
+.feedback.error {
+  color: #a1190f;
+}
+
+/* ======== BOTÃO DE EDIÇÃO E REINÍCIO ======== */
+.preview-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.8rem;
+  background: #f9fbfd;
+}
+
+.edit-btn {
+  background: none;
+  border: none;
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: color 0.2s ease;
+}
+
+.edit-btn:hover {
+  color: var(--accent);
+}
+
+.secondary-btn {
+  background: #f0f4f8;
+  color: var(--primary-dark);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.95rem 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.secondary-btn:hover {
+  background: #e4f2fb;
+}
+
+/* ======== TOAST DE SUCESSO ======== */
+.upload-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: var(--white);
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  animation: toastSlide 0.4s ease forwards, toastFadeOut 0.4s ease 2.6s forwards;
+  z-index: 1000;
+}
+
+.upload-toast .icon {
+  font-size: 1.2rem;
+}
+
+@keyframes toastSlide {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes toastFadeOut {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+}
+
 /* ========== RESPONSIVIDADE ========== */
 @media (max-width: 1024px) {
   .container {
@@ -279,6 +475,10 @@ button:disabled {
 
   .button-row {
     gap: 0.8rem;
+  }
+
+  .preview-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   }
 }
 
@@ -308,6 +508,10 @@ button:disabled {
   button {
     font-size: 0.95rem;
   }
+
+  .preview-card img {
+    height: 100px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -326,5 +530,12 @@ button:disabled {
   .button-row {
     flex-direction: column;
   }
-}
 
+  .preview-card img {
+    height: 90px;
+  }
+
+  .preview-card span {
+    font-size: 0.8rem;
+  }
+}
