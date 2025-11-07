@@ -32,14 +32,44 @@ export default function UploadFlow() {
     });
   };
 
+  // 🔹 Envio final ao backend
+  const handleFinish = async () => {
+    try {
+      const data = new FormData();
+      data.append('documentNumber', documentNumber);
+
+      if (formData.conferencia) data.append('conferencia', formData.conferencia);
+      if (formData.carga.placa) data.append('placa', formData.carga.placa);
+      if (formData.carga.carga1) data.append('carga1', formData.carga.carga1);
+      if (formData.carga.carga2) data.append('carga2', formData.carga.carga2);
+      if (formData.canhoto) data.append('canhoto', formData.canhoto);
+
+      const res = await fetch('http://localhost:3000/api/upload', {
+        method: 'POST',
+        body: data,
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || 'Erro no upload');
+
+      alert('Upload concluído com sucesso!');
+      console.log('Backend:', result);
+      localStorage.clear();
+    } catch (err) {
+      console.error('Erro no envio:', err);
+      alert('Falha no upload: ' + err.message);
+    }
+  };
+
   return (
     <div className="upload-page">
       <header className="header-container">
-      <img src={Logo} alt="Logo ABR" id="logo" />
-    </header>
+        <img src={Logo} alt="Logo ABR" id="logo" />
+      </header>
       <main className="main-container">
         <div className="container">
           <StepHeader step={step} />
+
           {step === 1 && (
             <StepConferencia
               documentNumber={documentNumber}
@@ -63,10 +93,7 @@ export default function UploadFlow() {
               documentNumber={documentNumber}
               setFormData={setFormData}
               onBack={handleBack}
-              onFinish={() => {
-                localStorage.clear();
-                alert('Upload finalizado com sucesso!');
-              }}
+              onFinish={handleFinish}
             />
           )}
         </div>
