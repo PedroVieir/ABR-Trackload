@@ -3,78 +3,66 @@ const fs = require("fs").promises;
 const sharp = require("sharp");
 require("dotenv").config();
 
-/**
- * Mapeia as pastas de destino com base na estrutura de rede e inclui a nova pasta.
- * Os caminhos UNC são suportados (ex: \\10.0.0.20\abr\publico\Documentos\...).
- */
 const BASE_UPLOAD_PATH = "\\\\10.0.0.20\\abr\\publico\\Documentos\\Upload_Sistema";
 
 const directories = {
   conferencia: path.join(BASE_UPLOAD_PATH, "conferencia"),
   carga: path.join(BASE_UPLOAD_PATH, "carga"),
   canhoto: path.join(BASE_UPLOAD_PATH, "canhoto"),
-  nova: path.join(BASE_UPLOAD_PATH, "nova"),
 };
 
-/**
- * Garante que todas as pastas de destino existem.
- */
+// Garante que as pastas existem
 async function ensureDirectories() {
   for (const dir of Object.values(directories)) {
-    try {
-      await fs.mkdir(dir, { recursive: true });
-    } catch (err) {
-      console.error(`Erro ao criar diretório: ${dir}`, err);
-    }
+    await fs.mkdir(dir, { recursive: true }).catch(() => {});
   }
 }
 
-/**
- * Faz o upload e processamento das imagens de forma paralela para máximo desempenho.
- * Usa Sharp para compressão e redimensionamento.
- */
-async function handleUpload(files, body) {
-  if (!files || files.length === 0) {
-    throw new Error("Nenhum arquivo enviado");
-  }
-
+async function handleUpload(files, documentNumber) {
   await ensureDirectories();
 
-  const processedFiles = await Promise.all(
-    files.map(async (file) => {
-      try {
-        // Detecta a categoria no nome (ex: "carga_", "conferencia_", etc.)
-        const lowerName = file.originalname.toLowerCase();
+  const allFiles = [];
+  const entries = Object.entries(files);
 
-        let category = "nova"; // padrão se não identificar
-        if (lowerName.includes("conferencia")) category = "conferencia";
-        else if (lowerName.includes("carga")) category = "carga";
-        else if (lowerName.includes("canhoto")) category = "canhoto";
+  for (const [field, arr] of entries) {
+    const file = arr[0];
+    let category;
 
-        const targetDir = directories[category];
-        const fileName = `${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`;
-        const outputPath = path.join(targetDir, fileName);
+    if (field === "conferencia") category = "conferencia";
+    else if (["placa", "carga1", "carga2"].includes(field)) category = "carga";
+    else if (field === "canhoto") category = "canhoto";
+    else continue; // ignora campos desconhecidos
 
-        // Otimização e salvamento de imagem
-        await sharp(file.buffer)
-          .resize({ width: 1280, withoutEnlargement: true })
-          .jpeg({ quality: 80 })
-          .toFile(outputPath);
+    const saved = await saveFile(file, category, documentNumber, field);
+    allFiles.push(saved);
+  }
 
-        return {
-          categoria: category,
-          nomeOriginal: file.originalname,
-          caminho: outputPath,
-          status: "ok",
-        };
-      } catch (err) {
-        console.error("Erro ao processar arquivo:", file.originalname, err);
-        return { nomeOriginal: file.originalname, status: "erro", erro: err.message };
-      }
-    })
-  );
+  return allFiles;
+}
 
-  return processedFiles;
+async function saveFile(file, category, documentNumber, field) {
+  try {
+    const targetDir = directories[category];
+    const safeDoc = documentNumber.replace(/[^\d-]/g, '');
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    const fileName = `${safeDoc}_${field}${ext}`;
+    const outputPath = path.join(targetDir, fileName);
+
+    await sharp(file.buffer)
+      .resize({ width: 1280, withoutEnlargement: true })
+      .jpeg({ quality: 80 })
+      .toFile(outputPath);
+
+    return {
+      categoria: category,
+      arquivo: fileName,
+      caminho: outputPath,
+      status: "ok",
+    };
+  } catch (err) {
+    console.error(`Erro ao processar ${file.originalname}:`, err);
+    return { arquivo: file.originalname, status: "erro", erro: err.message };
+  }
 }
 
 module.exports = { handleUpload };
