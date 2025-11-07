@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/upload', uploadRoutes);
-app.use('/documentos', documentoRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/documentos', documentoRoutes);
 
 module.exports = app;
