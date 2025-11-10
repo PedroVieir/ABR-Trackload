@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { get, set, del, clear } from "idb-keyval";
 import StepConferencia from "./StepConferencia";
 import StepCarga from "./StepCarga";
 import StepCanhoto from "./StepCanhoto";
@@ -9,50 +10,60 @@ import "../styles/UploadPage.css";
 import { FaCheckCircle, FaRedoAlt, FaEdit } from "react-icons/fa";
 
 export default function UploadFlow() {
-  const [step, setStep] = useState(() => Number(localStorage.getItem("step")) || 1);
-  const [documentNumber, setDocumentNumber] = useState(localStorage.getItem("documentNumber") || "");
-  const [formData, setFormData] = useState(() => {
-    try {
-      const saved = localStorage.getItem("formData");
-      return saved ? JSON.parse(saved) : { conferencia: null, carga: {}, canhoto: null };
-    } catch {
-      localStorage.clear();
-      return { conferencia: null, carga: {}, canhoto: null };
-    }
-  });
-
+  // 🔹 Estados
+  const [hydrated, setHydrated] = useState(false);
+  const [step, setStep] = useState(1);
+  const [documentNumber, setDocumentNumber] = useState("");
+  const [formData, setFormData] = useState({ conferencia: null, carga: {}, canhoto: null });
   const [modalData, setModalData] = useState(null);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [editDocModal, setEditDocModal] = useState(false); // 🔹 modal para editar o número do documento
+  const [editDocModal, setEditDocModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [toastVisible, setToastVisible] = useState(false);
   const fileInputRef = useRef(null);
   const docInputRef = useRef(null);
 
-  // Máscara de documento (XX-XXXXXX)
+  // 🔸 Etapa 1 — Hidratar do IndexedDB antes de renderizar
+  useEffect(() => {
+    const hydrate = async () => {
+      try {
+        const savedStep = await get("step");
+        const savedDoc = await get("documentNumber");
+        const savedForm = await get("formData");
+
+        if (savedStep) setStep(savedStep);
+        if (savedDoc) setDocumentNumber(savedDoc);
+        if (savedForm) setFormData(savedForm);
+      } catch (err) {
+        console.error("Erro ao restaurar dados:", err);
+      } finally {
+        setHydrated(true);
+      }
+    };
+    hydrate();
+  }, []);
+
+  // 🔸 Etapa 2 — Persistir toda vez que mudar
+  useEffect(() => {
+    if (!hydrated) return; // evita salvar antes de restaurar
+    set("step", step);
+    set("documentNumber", documentNumber);
+    set("formData", formData);
+  }, [step, documentNumber, formData, hydrated]);
+
+  // 🔸 Máscara do documento
   const formatDoc = (value) => {
     let digits = value.replace(/\D/g, "");
     if (digits.length > 2) digits = digits.slice(0, 2) + "-" + digits.slice(2, 8);
     return digits;
   };
 
-  // Persistência total
-  useEffect(() => {
-    const serialized = JSON.stringify(formData, (key, value) => {
-      if (value instanceof File || value instanceof Blob)
-        return { __file: true, name: value.name };
-      return value;
-    });
-
-    localStorage.setItem("step", step);
-    localStorage.setItem("documentNumber", documentNumber);
-    localStorage.setItem("formData", serialized);
-  }, [step, documentNumber, formData]);
-
+  // 🔸 Navegação
   const handleNext = () => setStep((prev) => prev + 1);
   const handleBack = () => setStep((prev) => prev - 1);
 
+  // 🔸 Limpar seção específica
   const handleClear = (section, field = null) => {
     setFormData((prev) => {
       const updated = { ...prev };
@@ -62,11 +73,10 @@ export default function UploadFlow() {
     });
   };
 
-  // Reinício
+  // 🔸 Reset total
   const handleReset = () => setConfirmReset(true);
-
-  const confirmResetProcess = () => {
-    localStorage.clear();
+  const confirmResetProcess = async () => {
+    await clear(); // limpa IndexedDB
     setFormData({ conferencia: null, carga: {}, canhoto: null });
     setDocumentNumber("");
     setStep(1);
@@ -74,11 +84,10 @@ export default function UploadFlow() {
     setConfirmReset(false);
   };
 
-  // Substituição de imagem
+  // 🔸 Substituição de imagem
   const handleReplaceImage = (e) => {
     const file = e.target.files[0];
     if (!file || !modalData) return;
-
     const { section, field } = modalData;
     setFormData((prev) => {
       const updated = { ...prev };
@@ -86,12 +95,11 @@ export default function UploadFlow() {
       else updated[section] = file;
       return updated;
     });
-
-    setFeedback({ type: "success", text: "Imagem substituída com sucesso." });
+    setFeedback({ type: "success", text: "Imagem substituída." });
     setModalData(null);
   };
 
-  // Edição do número do documento via modal
+  // 🔸 Editar número do documento
   const handleEditDoc = () => setEditDocModal(true);
   const handleSaveDoc = () => {
     const newValue = formatDoc(docInputRef.current.value);
@@ -101,16 +109,13 @@ export default function UploadFlow() {
     }
     setDocumentNumber(newValue);
     setEditDocModal(false);
-    setFeedback({ type: "success", text: "Número do documento atualizado com sucesso." });
+    setFeedback({ type: "success", text: "Número atualizado." });
   };
 
-  // Upload final
+  // 🔸 Upload final + limpeza total
   const handleConfirmUpload = async () => {
     if (!/^[0-9]{2}-[0-9]{6}$/.test(documentNumber)) {
-      setFeedback({
-        type: "error",
-        text: "Formato inválido do número do documento. Use XX-XXXXXX.",
-      });
+      setFeedback({ type: "error", text: "Formato inválido. Use XX-XXXXXX." });
       return;
     }
 
@@ -131,46 +136,42 @@ export default function UploadFlow() {
         body: data,
       });
 
-      if (!res.ok) throw new Error("Falha no envio. Verifique os dados.");
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result?.message || "Falha no upload.");
 
       setToastVisible(true);
-      setFeedback({ type: "success", text: "Upload concluído com sucesso!" });
+      setFeedback({ type: "success", text: "Upload concluído!" });
 
-      setTimeout(() => {
+      setTimeout(async () => {
         setToastVisible(false);
-        confirmResetProcess();
-      }, 3000);
+        await confirmResetProcess();
+      }, 2500);
     } catch (err) {
-      setFeedback({ type: "error", text: err.message });
+      const msg = err.message.includes("Failed to fetch")
+        ? "Erro de conexão com o servidor."
+        : err.message;
+      setFeedback({ type: "error", text: msg });
     } finally {
       setUploading(false);
     }
   };
 
-  // Renderização dos previews
+  // 🔸 Previews
   const renderPreview = (file, label, section, field) => {
     if (!file) return null;
-    let url = "";
-    try {
-      url = URL.createObjectURL(file);
-    } catch {
-      return null;
-    }
-
+    const url = URL.createObjectURL(file);
     return (
       <div key={label} className="preview-card">
         <img
           src={url}
           alt={label}
           onClick={() => setModalData({ url, section, field })}
-          loading="lazy"
         />
         <div className="preview-info">
           <span>{label}</span>
           <button
             className="edit-btn"
             onClick={() => setModalData({ url, section, field })}
-            title={`Editar ${label}`}
           >
             <FaEdit />
           </button>
@@ -179,29 +180,19 @@ export default function UploadFlow() {
     );
   };
 
-  // Etapa 4 — Revisão
+  // 🔸 Tela de revisão final
   const renderSummary = () => (
     <div className="summary-container">
       <h1>Etapa 4 — Revisar e Confirmar Envio</h1>
-
-      {/* 🔹 Número do Documento com botão de edição */}
       <div className="doc-edit">
         <div className="doc-edit-header">
           <label htmlFor="document-number">Número do Documento</label>
-          <button
-            className="edit-btn"
-            onClick={handleEditDoc}
-            title="Editar número do documento"
-          >
+          <button className="edit-btn" onClick={handleEditDoc}>
             <FaEdit />
           </button>
         </div>
-
-        <div className="doc-edit-value" id="document-number">
-          {documentNumber || "—"}
-        </div>
+        <div className="doc-edit-value">{documentNumber || "—"}</div>
       </div>
-
 
       <div className="preview-grid">
         {renderPreview(formData.conferencia, "Conferência", "conferencia", null)}
@@ -213,7 +204,7 @@ export default function UploadFlow() {
 
       <div className="button-row">
         <button className="secondary-btn" onClick={handleReset}>
-          <FaRedoAlt /> Reiniciar Processo
+          <FaRedoAlt /> Reiniciar
         </button>
         <button
           className="primary-btn confirm-btn"
@@ -223,10 +214,12 @@ export default function UploadFlow() {
           {uploading ? "Enviando..." : <>Confirmar Envio <FaCheckCircle /></>}
         </button>
       </div>
-
       {feedback && <p className={`feedback ${feedback.type}`}>{feedback.text}</p>}
     </div>
   );
+
+  // 🔹 Evita renderizar antes da hidratação
+  if (!hydrated) return <p style={{ textAlign: "center" }}>Carregando dados salvos...</p>;
 
   return (
     <div className="upload-page">
@@ -268,7 +261,6 @@ export default function UploadFlow() {
         </div>
       </main>
 
-      {/* Toast */}
       {toastVisible && (
         <div className="upload-toast">
           <FaCheckCircle className="icon" />
@@ -276,7 +268,6 @@ export default function UploadFlow() {
         </div>
       )}
 
-      {/* 🔹 Modal de imagem */}
       {modalData && (
         <Modal
           modalData={modalData}
@@ -286,7 +277,6 @@ export default function UploadFlow() {
         />
       )}
 
-      {/* 🔹 Modal de número do documento */}
       {editDocModal && (
         <Modal
           title="Editar Número do Documento"
@@ -298,7 +288,6 @@ export default function UploadFlow() {
         />
       )}
 
-      {/* 🔹 Modal de confirmação de reset */}
       {confirmReset && (
         <Modal
           isConfirm
