@@ -62,7 +62,7 @@ html, body {
   gap: 0.75rem;
   cursor: pointer;
   transition: var(--transition);
-  padding: 0.25rem;
+  padding: 0.25rem; /*Ajuste menu */
   border-radius: var(--radius);
   flex-shrink: 0;
 }
