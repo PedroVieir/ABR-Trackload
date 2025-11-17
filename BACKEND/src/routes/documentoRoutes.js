@@ -1,8 +1,9 @@
 const express = require('express');
-const documentoController = require('../controllers/DocumentoController');
+const DocumentoController = require('../controllers/DocumentoController');
 
 const router = express.Router();
 
-router.get('/', documentoController.getDocumentos);
+// GET /api/documentos?nota=XX-XXXXXX&data=YYYY-MM-DD
+router.get('/', DocumentoController.listarDocumentos);
 
 module.exports = router;

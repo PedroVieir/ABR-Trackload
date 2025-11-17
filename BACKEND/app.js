@@ -12,6 +12,15 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Caminho base das imagens (igual Upload_Sistema)
+const BASE_UPLOAD_PATH =
+  process.env.BASE_UPLOAD_PATH ||
+  '\\\\10.0.0.20\\abr\\publico\\Documentos\\Upload_Sistema';
+
+// Servir arquivos de imagem da rede via HTTP
+// /uploads/conferencia/11-111111_conferencia.jpg
+app.use('/uploads', express.static(BASE_UPLOAD_PATH));
+
 // Rotas
 app.use('/api/upload', uploadRoutes);
 app.use('/api/documentos', documentoRoutes);

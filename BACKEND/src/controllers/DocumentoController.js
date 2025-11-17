@@ -1,14 +1,24 @@
-const documentoService = require('../services/DocumentoService');
+const documentoService = require('../services/documentoService');
 
-async function getDocumentos(req, res) {
-    try {
-        const { numero, cliente } = req.query;
-        const result = await documentoService.buscarDocumentos({ numero, cliente });
-        res.json({ success: true, data: result });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, message: err.message });
-    }
+async function listarDocumentos(req, res) {
+  try {
+    const { nota = '', data = '' } = req.query || {};
+
+    const filtros = {
+      nota: nota || '',
+      data: data || '',
+    };
+
+    const documentos = await documentoService.listarDocumentos(filtros);
+
+    return res.status(200).json(documentos);
+  } catch (err) {
+    console.error('[DOCUMENTOS ERROR]', err);
+
+    return res.status(500).json({
+      message: 'Erro ao listar documentos. Tente novamente mais tarde.',
+    });
+  }
 }
 
-module.exports = { getDocumentos };
+module.exports = { listarDocumentos };
