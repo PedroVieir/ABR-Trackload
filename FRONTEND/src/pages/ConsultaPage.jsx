@@ -26,7 +26,7 @@ export default function ConsultaDocumentos() {
   const [pendingFilterDate, setPendingFilterDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [pendingSortOrder, setPendingSortOrder] = useState("desc");
   const [pendingOnlyComplete, setPendingOnlyComplete] = useState(false);
-  const [appliedFilters, setAppliedFilters] = useState({ nota: "", data: "", sortOrder: "desc", onlyComplete: false });
+  const [appliedFilters, setAppliedFilters] = useState({ search: "", searchType: "ambos", data: "", sortOrder: "desc", onlyComplete: false });
 
   // Modal de preview
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -37,6 +37,8 @@ export default function ConsultaDocumentos() {
   const zoomIn = () => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)));
   const zoomOut = () => setZoom((z) => Math.max(1, +(z - 0.25).toFixed(2)));
   const resetZoom = () => setZoom(1);
+  // fullscreen preview when clicking image
+  const [fullscreenImage, setFullscreenImage] = useState(null);
 
   const navigate = useNavigate();
 
@@ -62,10 +64,10 @@ export default function ConsultaDocumentos() {
         const payload = { ts: Date.now(), data: arr };
         try { localStorage.setItem(CACHE_KEY, JSON.stringify(payload)); } catch (e) { /* ignore storage errors */ }
 
-        setDocumentsCache(arr);
-        // apply default appliedFilters (none) to set documents visible
-        setAppliedFilters({ nota: "", data: "", sortOrder: "desc", onlyComplete: false });
-        setDocuments(arr);
+  setDocumentsCache(arr);
+  // apply default appliedFilters (none) to set documents visible
+  setAppliedFilters({ search: "", searchType: "ambos", data: "", sortOrder: "desc", onlyComplete: false });
+  setDocuments(arr);
       } catch (err) {
         console.error(err);
         setError("Erro ao carregar documentos.");
@@ -111,6 +113,15 @@ export default function ConsultaDocumentos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewDoc, activePreviewTab, activeImageIndex]);
 
+  // close fullscreen with ESC
+  useEffect(() => {
+    function handleFsKey(e) {
+      if (e.key === 'Escape') setFullscreenImage(null);
+    }
+    window.addEventListener('keydown', handleFsKey);
+    return () => window.removeEventListener('keydown', handleFsKey);
+  }, []);
+
   const toggleFilters = () => {
     setFiltersOpen((prev) => !prev);
   };
@@ -152,6 +163,18 @@ export default function ConsultaDocumentos() {
     return imagens.canhoto || [];
   };
 
+  // heurística para identificar se o termo digitado é uma NF (número) ou nome de cliente
+  const detectSearchType = (q) => {
+    if (!q) return 'ambos';
+    const hasLetter = /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(q);
+    const hasDigit = /\d/.test(q);
+    if (hasDigit && !hasLetter) return 'nota';
+    if (!hasDigit && hasLetter) return 'cliente';
+    const digitsCount = (q.match(/\d/g) || []).length;
+    const lettersCount = (q.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/g) || []).length;
+    return digitsCount >= lettersCount ? 'nota' : 'cliente';
+  };
+
   const handlePrevImage = () => {
     if (!previewDoc) return;
     const list = getActiveImageList(previewDoc, activePreviewTab);
@@ -176,10 +199,18 @@ export default function ConsultaDocumentos() {
   const filteredDocs = useMemo(() => {
     let result = [...documentsCache];
 
-    // Nota search
-    if (appliedFilters.nota) {
-      const q = appliedFilters.nota.toLowerCase();
-      result = result.filter((d) => String(d.nf || "").toLowerCase().includes(q));
+    // Search (by NF, Cliente or Ambos)
+    if (appliedFilters.search) {
+      const q = appliedFilters.search.toLowerCase();
+      const type = (appliedFilters.searchType || 'ambos');
+      result = result.filter((d) => {
+        const nf = String(d.nf || '').toLowerCase();
+        const cliente = String(d.cliente || '').toLowerCase();
+        if (type === 'nota') return nf.includes(q);
+        if (type === 'cliente') return cliente.includes(q);
+        // ambos
+        return nf.includes(q) || cliente.includes(q);
+      });
     }
 
     // Data filter (if provided)
@@ -212,6 +243,36 @@ export default function ConsultaDocumentos() {
     return filteredDocs.slice(start, start + pageSize);
   }, [filteredDocs, page, pageSize]);
 
+  // helper to build page number list with ellipses
+  const getPageList = (current, total, maxButtons = 7) => {
+    const pages = [];
+    if (total <= maxButtons) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+      return pages;
+    }
+
+    const side = Math.floor((maxButtons - 3) / 2); // space for first,last and one ellipsis each
+    let start = Math.max(2, current - side);
+    let end = Math.min(total - 1, current + side);
+
+    if (current - 1 <= side) {
+      start = 2;
+      end = maxButtons - 2;
+    }
+    if (total - current <= side) {
+      start = total - (maxButtons - 3);
+      end = total - 1;
+    }
+
+    pages.push(1);
+    if (start > 2) pages.push("...");
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (end < total - 1) pages.push("...");
+    pages.push(total);
+
+    return pages;
+  };
+
   const renderImagesPreview = () => {
     if (!previewDoc) return null;
 
@@ -236,8 +297,25 @@ export default function ConsultaDocumentos() {
             <FaChevronLeft />
           </button>
 
-          <div className="preview-image-wrap" style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-            <img src={currentSrc} alt={`${activePreviewTab} ${currentIndex + 1}`} className="preview-image" style={{ transform: `scale(${zoom})`, transition: 'transform 150ms ease' }} onDoubleClick={() => (zoom === 1 ? zoomIn() : resetZoom())} />
+          <div
+            className="preview-image-wrap"
+            style={{
+              flex: 1,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              overflow: zoom > 1 ? 'auto' : 'hidden',
+            }}
+          >
+            <img
+              src={currentSrc}
+              alt={`${activePreviewTab} ${currentIndex + 1}`}
+              className={`preview-image ${zoom > 1 ? 'zoomed' : ''}`}
+              style={{ transform: `scale(${zoom})`, transition: 'transform 150ms ease', cursor: zoom > 1 ? 'grab' : 'zoom-in' }}
+              onDoubleClick={() => (zoom === 1 ? zoomIn() : resetZoom())}
+              onClick={() => setFullscreenImage(currentSrc)}
+              draggable={false}
+            />
           </div>
 
           <button type="button" className="preview-nav-btn" onClick={handleNextImage} disabled={list.length <= 1} aria-label="Próxima">
@@ -277,9 +355,28 @@ export default function ConsultaDocumentos() {
         {/* Barra de busca (nota) */}
         <div className="search-bar">
           <FaSearch className="search-icon" />
-          <input type="text" placeholder="Buscar por número da NF..." value={pendingSearch} onChange={(e) => setPendingSearch(e.target.value)} />
-          <button type="button" className="images-btn" onClick={() => { setPendingSearch(''); setPendingFilterDate(new Date().toISOString().slice(0,10)); setPendingOnlyComplete(false); setPendingSortOrder('desc'); }}>Limpar</button>
-          <button type="button" className="images-btn" onClick={() => { setFiltersOpen((f) => !f); }}>{filtersOpen ? 'Fechar' : 'Filtros'}</button>
+          <input
+            type="text"
+            placeholder="Buscar por NF ou cliente..."
+            value={pendingSearch}
+            onChange={(e) => setPendingSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const q = (e.target.value || '').trim();
+                const type = detectSearchType(q);
+                setAppliedFilters({ search: q, searchType: type, data: q ? '' : pendingFilterDate, sortOrder: pendingSortOrder, onlyComplete: pendingOnlyComplete });
+                setPage(1);
+              }
+            }}
+          />
+          <button type="button" className="search-btn" title="Buscar" onClick={() => {
+            const q = pendingSearch.trim();
+            const type = detectSearchType(q);
+            setAppliedFilters({ search: q, searchType: type, data: q ? '' : pendingFilterDate, sortOrder: pendingSortOrder, onlyComplete: pendingOnlyComplete });
+            setPage(1);
+          }}>
+            <FaSearch />
+          </button>
         </div>
 
         {/* Linha dos filtros */}
@@ -294,7 +391,7 @@ export default function ConsultaDocumentos() {
           </button>
           <span className="filters-summary">
             {appliedFilters.sortOrder === 'desc' ? 'Mais recentes primeiro' : 'Mais antigos primeiro'}
-            {appliedFilters.nota ? ' · Filtrando por NF' : appliedFilters.data ? ` · Data ${formatDate(appliedFilters.data)}` : ''}
+            {appliedFilters.search ? ` · Buscando por "${appliedFilters.search}" (${appliedFilters.searchType === 'nota' ? 'NF' : appliedFilters.searchType === 'cliente' ? 'Cliente' : 'NF ou Cliente'})` : appliedFilters.data ? ` · Data ${formatDate(appliedFilters.data)}` : ''}
             {appliedFilters.onlyComplete ? ' · Somente NF completas' : ''}
           </span>
         </div>
@@ -333,12 +430,14 @@ export default function ConsultaDocumentos() {
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                 <button type="button" className="images-btn" onClick={() => {
                   // apply filters -> close panel and set appliedFilters (client-side only)
-                  setAppliedFilters({ nota: pendingSearch.trim(), data: pendingSearch.trim() ? '' : pendingFilterDate, sortOrder: pendingSortOrder, onlyComplete: pendingOnlyComplete });
+                  const q = pendingSearch.trim();
+                  const type = detectSearchType(q);
+                  setAppliedFilters({ search: q, searchType: type, data: q ? '' : pendingFilterDate, sortOrder: pendingSortOrder, onlyComplete: pendingOnlyComplete });
                   setFiltersOpen(false);
                   setPage(1);
                 }}>Aplicar</button>
                 <button type="button" className="images-btn" onClick={() => {
-                  setPendingSearch(''); setPendingFilterDate(new Date().toISOString().slice(0,10)); setPendingOnlyComplete(false); setPendingSortOrder('desc');
+                  setPendingSearch(''); setPendingFilterDate(new Date().toISOString().slice(0, 10)); setPendingOnlyComplete(false); setPendingSortOrder('desc');
                 }} style={{ background: '#fff' }}>Limpar</button>
                 <button type="button" className="images-btn" onClick={() => {
                   // refresh cache from server
@@ -408,19 +507,51 @@ export default function ConsultaDocumentos() {
               </tbody>
             </table>
             {/* pagination controls - professional/responsive */}
-            <div className="pagination-bar">
-              <div className="pagination-info">Mostrando {pagedDocs.length} de {filteredDocs.length} registros</div>
-              <div className="pagination-actions">
-                <button className="page-btn" onClick={() => setPage(1)} disabled={page === 1}>« Primeiro</button>
-                <button className="page-btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>‹ Anterior</button>
-                <span className="page-current">Página {page} / {totalPages}</span>
-                <button className="page-btn" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Próxima ›</button>
-                <button className="page-btn" onClick={() => setPage(totalPages)} disabled={page === totalPages}>Último »</button>
-                <select className="page-size" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
-                  <option value={20}>20 / pág</option>
-                  <option value={50}>50 / pág</option>
-                  <option value={100}>100 / pág</option>
-                </select>
+            <div className="pagination-wrapper">
+
+              {/* Linha 1: Controles de Navegação (Centralizados) */}
+              <div className="pagination-controls-center">
+                <button className="page-btn-control" onClick={() => setPage(1)} disabled={page === 1} aria-label="Primeira página">
+                  «
+                </button>
+                <button className="page-btn-control" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} aria-label="Página anterior">
+                  ‹
+                </button>
+
+                {/* Informação da Página Atual (no centro dos controles) */}
+                <span className="page-current-indicator">
+                  Página **{page}** de **{totalPages}**
+                </span>
+
+                <button className="page-btn-control" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="Próxima página">
+                  ›
+                </button>
+                <button className="page-btn-control" onClick={() => setPage(totalPages)} disabled={page === totalPages} aria-label="Última página">
+                  »
+                </button>
+              </div>
+
+              {/* Linha 2 (opcional, só aparece se houver pouco espaço) */}
+              <div className="pagination-details">
+                {/* Informações de contagem */}
+                <div className="pagination-info">
+                  Mostrando {pagedDocs.length} de {filteredDocs.length} registros
+                </div>
+
+                {/* Seletor de Tamanho da Página */}
+                <div className="page-size-controls">
+                  <label htmlFor="page-size-select" className="page-size-label">Linhas:</label>
+                  <select
+                    id="page-size-select"
+                    className="page-size-select"
+                    value={pageSize}
+                    onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                  >
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -429,19 +560,19 @@ export default function ConsultaDocumentos() {
 
       {/* Modal de preview de imagens */}
       {previewDoc && (
-        <div className="preview-modal-backdrop" onClick={closePreview}>
+        <div className="preview-modal-backdrop-imagens" onClick={closePreview}>
           <div
-            className="preview-modal"
+            className="preview-modal-imagens"
             onClick={(e) => e.stopPropagation()}
           >
-            <header className="preview-header">
+            <header className="preview-header-imagens">
               <div>
                 <h2>NF {previewDoc.nf}</h2>
                 <p>{previewDoc.cliente}</p>
               </div>
               <button
                 type="button"
-                className="preview-close"
+                className="preview-close-imagens"
                 onClick={closePreview}
                 aria-label="Fechar preview"
               >
@@ -449,12 +580,11 @@ export default function ConsultaDocumentos() {
               </button>
             </header>
 
-            <nav className="preview-tabs">
+            <nav className="preview-tabs-imagens">
               <button
                 type="button"
-                className={`preview-tab ${
-                  activePreviewTab === "conferencia" ? "active" : ""
-                }`}
+                className={`preview-tab-imagens ${activePreviewTab === "conferencia" ? "active" : ""
+                  }`}
                 onClick={() => {
                   setActivePreviewTab("conferencia");
                   setActiveImageIndex(0);
@@ -464,9 +594,8 @@ export default function ConsultaDocumentos() {
               </button>
               <button
                 type="button"
-                className={`preview-tab ${
-                  activePreviewTab === "carga" ? "active" : ""
-                }`}
+                className={`preview-tab-imagens ${activePreviewTab === "carga" ? "active" : ""
+                  }`}
                 onClick={() => {
                   setActivePreviewTab("carga");
                   setActiveImageIndex(0);
@@ -476,9 +605,8 @@ export default function ConsultaDocumentos() {
               </button>
               <button
                 type="button"
-                className={`preview-tab ${
-                  activePreviewTab === "canhoto" ? "active" : ""
-                }`}
+                className={`preview-tab-imagens ${activePreviewTab === "canhoto" ? "active" : ""
+                  }`}
                 onClick={() => {
                   setActivePreviewTab("canhoto");
                   setActiveImageIndex(0);
@@ -488,10 +616,17 @@ export default function ConsultaDocumentos() {
               </button>
             </nav>
 
-            <section className="preview-content">
+            <section className="preview-content-imagens">
               {renderImagesPreview()}
             </section>
           </div>
+        </div>
+      )}
+
+      {/* Fullscreen expanded image (click to expand) */}
+      {fullscreenImage && (
+        <div className="fs-backdrop-imagens" onClick={() => setFullscreenImage(null)}>
+          <img src={fullscreenImage} alt="Expandida" className="fs-image" onClick={() => setFullscreenImage(null)} />
         </div>
       )}
     </div>

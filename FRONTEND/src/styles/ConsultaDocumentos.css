@@ -69,6 +69,22 @@ body {
   color: var(--text);
 }
 
+.search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.search-btn svg { width: 16px; height: 16px; }
+
 /* LINHA DOS FILTROS */
 .filters-row {
   display: flex;
@@ -309,7 +325,7 @@ body {
 }
 
 /* MODAL PREVIEW */
-.preview-modal-backdrop {
+.preview-modal-backdrop-imagens {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
@@ -319,7 +335,7 @@ body {
   z-index: 1000;
 }
 
-.preview-modal {
+.preview-modal-imagens {
   background: var(--white);
   width: min(900px, 95%);
   max-height: 90vh;
@@ -330,7 +346,7 @@ body {
   overflow: hidden;
 }
 
-.preview-header {
+.preview-header-imagens {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -339,19 +355,19 @@ body {
   background: #f7fbff;
 }
 
-.preview-header h2 {
+.preview-header-imagens h2 {
   margin: 0;
   font-size: 1.1rem;
   color: var(--primary-dark);
 }
 
-.preview-header p {
+.preview-header-imagens p {
   margin: 0.15rem 0 0 0;
   font-size: 0.85rem;
   color: #555;
 }
 
-.preview-close {
+.preview-close-imagens {
   border: none;
   background: transparent;
   cursor: pointer;
@@ -362,17 +378,17 @@ body {
   transition: var(--transition);
 }
 
-.preview-close:hover {
+.preview-close-imagens:hover {
   background: #e6eef8;
 }
 
 /* TABS */
-.preview-tabs {
+.preview-tabs-imagens {
   display: flex;
   border-bottom: 1px solid var(--border);
 }
 
-.preview-tab {
+.preview-tab-imagens {
   flex: 1;
   padding: 0.6rem 0.8rem;
   border: none;
@@ -384,40 +400,40 @@ body {
   transition: var(--transition);
 }
 
-.preview-tab:hover {
+.preview-tab-imagens:hover {
   background: #f7fbff;
 }
 
-.preview-tab.active {
+.preview-tab-imagens.active {
   color: var(--primary-dark);
   border-bottom: 2px solid var(--primary);
 }
 
 /* CONTEÚDO DO PREVIEW */
-.preview-content {
+.preview-content-imagens {
   padding: 0.9rem 1.2rem 1.1rem;
   overflow-y: auto;
 }
 
-.preview-empty {
+.preview-empty-imagens {
   font-size: 0.9rem;
   color: #777;
 }
 
-.preview-grid {
+.preview-grid-imagens {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.7rem;
 }
 
-.preview-item {
+.preview-item-imagens {
   border-radius: 8px;
   border: 1px solid var(--border);
   overflow: hidden;
   background: #f7fbff;
 }
 
-.preview-item img {
+.preview-item-imagens img {
   display: block;
   width: 100%;
   height: 170px;
@@ -454,7 +470,7 @@ body {
     padding: 0.5rem 0.8rem;
   }
 
-  .preview-modal {
+  .preview-modal-imagens {
     width: 95%;
   }
 
@@ -491,7 +507,175 @@ body {
     font-size: 0.8rem;
   }
 
-  .preview-item img {
+  .preview-item-imagens img {
     height: 140px;
   }
 }
+
+/* Fullscreen image overlay */
+.fs-backdrop-imagens {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.fs-image-imagens {
+  max-width: 95%;
+  max-height: 95%;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  border-radius: 6px;
+  cursor: zoom-out;
+}
+
+/* Pagination numeric buttons */
+.page-numbers {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.page-number {
+  min-width: 36px;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--primary-dark);
+  text-align: center;
+  cursor: pointer;
+}
+
+.page-number.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.page-number.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ellipsis {
+  padding: 0 6px;
+  color: #777;
+}
+
+@media (max-width: 520px) {
+  .page-number {
+    min-width: 30px;
+    padding: 0.3rem 0.45rem;
+  }
+  .pagination-bar {
+    gap: 6px;
+  }
+}
+
+/* Container principal: permite que as sub-áreas quebrem linha */
+.pagination-wrapper {
+  display: flex;
+  flex-direction: column; /* Começa empilhando verticalmente */
+  gap: 10px;
+  width: 100%;
+  padding: 12px 0;
+  /* SEM overflow-x: auto */
+}
+
+/* LINHA PRINCIPAL: Controles de Navegação */
+.pagination-controls-center {
+  display: flex;
+  /* Centraliza os controles na tela */
+  justify-content: center; 
+  align-items: center;
+  gap: 8px; 
+  width: 100%;
+  flex-wrap: wrap; /* Permite que os botões quebrem linha se necessário (altamente improvável agora) */
+}
+
+/* Indicador de Página Atual (no centro dos controles) */
+.page-current-indicator {
+  padding: 6px 10px;
+  font-size: 0.95rem;
+  font-weight: 400;
+  white-space: nowrap; /* Mantém o texto em uma linha */
+}
+
+.page-current-indicator strong {
+  font-weight: 600;
+  color: #007bff;
+}
+
+/* LINHA DE DETALHES: Info e Seletor de Tamanho */
+.pagination-details {
+  display: flex;
+  /* Distribui Info e Seletor para as extremidades */
+  justify-content: space-between; 
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  /* Permite que o bloco de info e o seletor se empilhem em telas MUITO pequenas */
+  flex-wrap: wrap; 
+}
+
+/* Informações de Contagem */
+.pagination-info {
+  font-size: 0.85rem;
+  color: #666;
+  flex-shrink: 1; /* Permite encolher */
+  min-width: 0; /* Permite encolher o texto */
+}
+
+/* Seletor de Tamanho */
+.page-size-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0; /* Não encolhe, é pequeno o suficiente */
+}
+
+.page-size-label {
+  font-size: 0.85rem;
+  color: #444;
+}
+
+/* Estilos dos botões de controle */
+.page-btn-control {
+  border: 1px solid #ccc;
+  background-color: #f8f8f8;
+  color: #444;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  min-width: 38px;
+  font-size: 1rem;
+  font-weight: 700;
+  transition: background-color 0.2s;
+}
+
+.page-btn-control:hover:not(:disabled) {
+  background-color: #e9e9e9;
+}
+
+.page-btn-control:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Preview image container (used by ConsultaPage.jsx) */
+.preview-main { display:flex; align-items:center; gap:12px; }
+.preview-image-wrap { display:flex; justify-content:center; align-items:center; width:100%; }
+.preview-image { max-width:100%; max-height:70vh; width:auto; height:auto; object-fit:contain; transform-origin:center center; display:block; }
+.preview-image.zoomed { cursor: grab; }
+.preview-image:active { cursor: grabbing; }
+.preview-thumbs { display:flex; gap:8px; margin-top:8px; overflow-x:auto; }
+.preview-thumb { border:1px solid var(--border); padding:4px; border-radius:6px; background:#fff; flex:0 0 auto; }
+.preview-thumb img { display:block; width:90px; height:56px; object-fit:cover; border-radius:4px; }
+
+/* Ensure modal content area centers image and allows scroll when needed */
+.preview-content { display:flex; flex-direction:column; align-items:stretch; }
+.preview-controls { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+
