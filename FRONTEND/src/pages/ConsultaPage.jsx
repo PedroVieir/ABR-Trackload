@@ -378,32 +378,32 @@ export default function ConsultaDocumentos() {
               overflow: zoom > 1 ? "auto" : "hidden",
             }}
           >
-              <div style={{ position: 'relative', width: '100%' }}>
-                {imgLoading && (
-                  <div className="img-spinner-overlay">
-                    <div className="img-spinner" aria-hidden="true" />
-                  </div>
-                )}
-                <img
-                  src={currentSrc}
-                  alt={`${activePreviewTab} ${currentIndex + 1}`}
-                  className={`preview-image ${zoom > 1 ? "zoomed" : ""}`}
-                  style={{
-                    transform: `scale(${zoom})`,
-                    transition: "transform 150ms ease",
-                    cursor: zoom > 1 ? "grab" : "zoom-in",
-                  }}
-                  onDoubleClick={() =>
-                    zoom === 1 ? zoomIn() : resetZoom()
-                  }
-                  onClick={() => setFullscreenImage(currentSrc)}
-                  draggable={false}
-                  loading="lazy"
-                  decoding="async"
-                  onLoad={() => setImgLoading(false)}
-                  onError={() => setImgLoading(false)}
-                />
-              </div>
+            <div style={{ position: 'relative', width: '100%' }}>
+              {imgLoading && (
+                <div className="img-spinner-overlay">
+                  <div className="img-spinner" aria-hidden="true" />
+                </div>
+              )}
+              <img
+                src={currentSrc}
+                alt={`${activePreviewTab} ${currentIndex + 1}`}
+                className={`preview-image ${zoom > 1 ? "zoomed" : ""}`}
+                style={{
+                  transform: `scale(${zoom})`,
+                  transition: "transform 150ms ease",
+                  cursor: zoom > 1 ? "grab" : "zoom-in",
+                }}
+                onDoubleClick={() =>
+                  zoom === 1 ? zoomIn() : resetZoom()
+                }
+                onClick={() => setFullscreenImage(currentSrc)}
+                draggable={false}
+                loading="lazy"
+                decoding="async"
+                onLoad={() => setImgLoading(false)}
+                onError={() => setImgLoading(false)}
+              />
+            </div>
           </div>
 
           <button
