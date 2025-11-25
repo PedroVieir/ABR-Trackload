@@ -1,17 +1,21 @@
 // src/pages/StepCarga.jsx
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import imageCompression from "browser-image-compression";
 import { FaCheckCircle } from "react-icons/fa";
 
 import Header from "../components/Header";
 import FileInput from "../components/FileInput";
 import FeedbackMessage from "../components/FeedbackMessage";
+import { savePendingUpload } from "../utils/offlineSync";
 
 import "../styles/UploadPage.css";
 
 export default function StepCarga() {
   const navigate = useNavigate();
+
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const [documentNumber, setDocumentNumber] = useState("");
   const [files, setFiles] = useState({
@@ -34,6 +38,19 @@ export default function StepCarga() {
     }
     return digits;
   };
+
+  // Preenche automaticamente a partir do parâmetro `nf` e remove o param
+  useEffect(() => {
+    const nf = searchParams.get("nf");
+    if (!nf) return;
+    const formatted = formatDoc(nf);
+    if (formatted) {
+      setDocumentNumber(formatted);
+      // Remove o parâmetro da URL para não gerar redundância no histórico
+      navigate(location.pathname, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFileChange = async (field, file, nomeMessage) => {
     if (!file) return;
@@ -117,6 +134,36 @@ export default function StepCarga() {
     setIsSubmitting(true);
 
     try {
+      if (!navigator.onLine) {
+        const fileToDataUrl = (fileObj) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsDataURL(fileObj);
+          });
+
+        const filesMap = {};
+        if (files.placa) filesMap.placa = await fileToDataUrl(files.placa);
+        if (files.carga1) filesMap.carga1 = await fileToDataUrl(files.carga1);
+        if (files.carga2) filesMap.carga2 = await fileToDataUrl(files.carga2);
+
+        await savePendingUpload({ documentNumber, files: filesMap, meta: { step: "carga" } });
+
+        setFeedback({
+          type: "warning",
+          text: "Sem conexão. Envio enfileirado e será enviado automaticamente quando a internet for restabelecida.",
+        });
+
+        setTimeout(() => {
+          setShowConfirmModal(false);
+          resetPage();
+          setIsSubmitting(false);
+        }, 1200);
+
+        return;
+      }
+
       const formData = new FormData();
       formData.append("documentNumber", documentNumber);
 
@@ -124,13 +171,10 @@ export default function StepCarga() {
       if (files.carga1) formData.append("carga1", files.carga1);
       if (files.carga2) formData.append("carga2", files.carga2);
 
-      const res = await fetch(
-        import.meta.env.VITE_BACKEND_URL + "/upload",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const res = await fetch(import.meta.env.VITE_BACKEND_URL + "/upload", {
+        method: "POST",
+        body: formData,
+      });
 
       const result = await res.json().catch(() => ({}));
       if (!res.ok) {

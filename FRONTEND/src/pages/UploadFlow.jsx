@@ -185,6 +185,41 @@ export default function UploadFlow() {
         return;
       }
 
+
+      // Se estiver offline -> enfileira todos os arquivos e retorna
+      if (!navigator.onLine) {
+        const fileToDataUrl = (fileObj) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = (e) => reject(e);
+            reader.readAsDataURL(fileObj);
+          });
+
+        const filesMap = {};
+        if (formData.conferencia)
+          filesMap.conferencia = await fileToDataUrl(formData.conferencia);
+        for (const [key, file] of Object.entries(formData.carga || {})) {
+          if (file) filesMap[key] = await fileToDataUrl(file);
+        }
+        if (formData.canhoto) filesMap.canhoto = await fileToDataUrl(formData.canhoto);
+
+        // salvar na fila
+        const { savePendingUpload } = await import("../utils/offlineSync");
+        await savePendingUpload({ documentNumber, files: filesMap, meta: { step: "all" } });
+
+        setFeedback({
+          type: "warning",
+          text: "Sem conexão. Envio enfileirado e será enviado automaticamente quando a internet for restabelecida.",
+        });
+
+        // limpa local e fecha modal
+        await confirmResetProcess();
+        setShowEnvioPreparadoModal(false);
+        setIsSubmittingUpload(false);
+        return;
+      }
+
       const data = new FormData();
       data.append("documentNumber", documentNumber);
 
@@ -197,13 +232,10 @@ export default function UploadFlow() {
 
       if (formData.canhoto) data.append("canhoto", formData.canhoto);
 
-      const res = await fetch(
-        import.meta.env.VITE_BACKEND_URL + "/upload",
-        {
-          method: "POST",
-          body: data,
-        }
-      );
+      const res = await fetch(import.meta.env.VITE_BACKEND_URL + "/upload", {
+        method: "POST",
+        body: data,
+      });
 
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result?.message || "Falha no upload.");
