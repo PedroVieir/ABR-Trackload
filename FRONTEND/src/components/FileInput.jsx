@@ -1,5 +1,5 @@
 // src/components/FileInput.jsx
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { FaImage, FaTrash } from "react-icons/fa";
 
 export default function FileInput({
@@ -7,6 +7,8 @@ export default function FileInput({
   fileType = "default",
   onChange,
   onClear,
+  // when `resetKey` changes the input will be cleared (useful after uploads)
+  resetKey,
 }) {
   const inputRef = useRef(null);
   const isImage = fileType === "foto";
@@ -15,6 +17,22 @@ export default function FileInput({
     if (inputRef.current) {
       inputRef.current.click();
     }
+  };
+
+  useEffect(() => {
+    // clear underlying input when resetKey changes
+    try {
+      if (inputRef.current) inputRef.current.value = "";
+    } catch (e) {
+      /* ignore */
+    }
+  }, [resetKey]);
+
+  const handleClear = () => {
+    try {
+      if (inputRef.current) inputRef.current.value = "";
+    } catch (e) { }
+    if (typeof onClear === "function") onClear();
   };
 
   return (
@@ -34,7 +52,7 @@ export default function FileInput({
         <button
           type="button"
           className="file-input-clear"
-          onClick={onClear}
+          onClick={handleClear}
         >
           <FaTrash /> Remover
         </button>

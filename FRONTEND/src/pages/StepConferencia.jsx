@@ -19,6 +19,7 @@ export default function StepConferencia() {
 
   const [documentNumber, setDocumentNumber] = useState("");
   const [file, setFile] = useState(null);
+  const [resetKey, setResetKey] = useState(0);
 
   const [feedback, setFeedback] = useState(null);
   const [loadingImage, setLoadingImage] = useState(false);
@@ -113,6 +114,7 @@ export default function StepConferencia() {
     setDocumentNumber("");
     setFile(null);
     setFeedback(null);
+    setResetKey((k) => k + 1);
   };
 
   const handleConfirmSend = async () => {
@@ -221,6 +223,7 @@ export default function StepConferencia() {
               fileType="foto"
               onChange={handleFileChange}
               onClear={handleClearFile}
+              resetKey={resetKey}
             />
 
             <div className="button-row">

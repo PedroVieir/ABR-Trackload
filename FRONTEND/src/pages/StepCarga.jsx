@@ -23,6 +23,7 @@ export default function StepCarga() {
     carga1: null,
     carga2: null,
   });
+  const [resetKey, setResetKey] = useState(0);
 
   const [feedback, setFeedback] = useState(null);
   const [loadingImage, setLoadingImage] = useState(false);
@@ -127,6 +128,7 @@ export default function StepCarga() {
     setDocumentNumber("");
     setFiles({ placa: null, carga1: null, carga2: null });
     setFeedback(null);
+    setResetKey((k) => k + 1);
   };
 
   const handleConfirmSend = async () => {
@@ -242,6 +244,7 @@ export default function StepCarga() {
                 handleFileChange("placa", e.target.files[0], "da Placa")
               }
               onClear={() => handleRemoveFile("placa", "da Placa")}
+              resetKey={resetKey}
             />
 
             <FileInput
@@ -257,6 +260,7 @@ export default function StepCarga() {
               onClear={() =>
                 handleRemoveFile("carga1", "da Primeira Carga")
               }
+              resetKey={resetKey}
             />
 
             <FileInput
@@ -272,6 +276,7 @@ export default function StepCarga() {
               onClear={() =>
                 handleRemoveFile("carga2", "da Segunda Carga")
               }
+              resetKey={resetKey}
             />
 
             <div className="button-row">

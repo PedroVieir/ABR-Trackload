@@ -23,6 +23,7 @@ export default function UploadFlow() {
   const [modalData, setModalData] = useState(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [editDocModal, setEditDocModal] = useState(false);
+  const [childKey, setChildKey] = useState(0);
 
   const [feedback, setFeedback] = useState(null);
 
@@ -97,6 +98,8 @@ export default function UploadFlow() {
     setStep(1);
     setFeedback(null);
     setConfirmReset(false);
+    // força remount dos componentes filhos para garantir limpeza de estados internos
+    setChildKey((k) => k + 1);
   };
 
   const handleReplaceImage = (e) => {
@@ -371,6 +374,7 @@ export default function UploadFlow() {
 
           {step === 1 && (
             <StepConferencia
+              key={`stepcon-${childKey}`}
               documentNumber={documentNumber}
               setDocumentNumber={setDocumentNumber}
               setFormData={setFormData}
@@ -379,6 +383,7 @@ export default function UploadFlow() {
           )}
           {step === 2 && (
             <StepCarga
+              key={`stepcarga-${childKey}`}
               documentNumber={documentNumber}
               formData={formData}
               setFormData={setFormData}
@@ -389,6 +394,7 @@ export default function UploadFlow() {
           )}
           {step === 3 && (
             <StepCanhoto
+              key={`stepcan-${childKey}`}
               documentNumber={documentNumber}
               setFormData={setFormData}
               onBack={handleBack}

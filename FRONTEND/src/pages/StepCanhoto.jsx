@@ -19,6 +19,7 @@ export default function StepCanhoto() {
 
   const [documentNumber, setDocumentNumber] = useState("");
   const [file, setFile] = useState(null);
+  const [resetKey, setResetKey] = useState(0);
 
   const [feedback, setFeedback] = useState(null);
   const [loadingImage, setLoadingImage] = useState(false);
@@ -113,6 +114,7 @@ export default function StepCanhoto() {
     setDocumentNumber("");
     setFile(null);
     setFeedback(null);
+    setResetKey((k) => k + 1);
   };
 
   const handleConfirmSend = async () => {
@@ -219,6 +221,7 @@ export default function StepCanhoto() {
               fileType="foto"
               onChange={handleFileChange}
               onClear={handleRemoveFile}
+              resetKey={resetKey}
             />
 
             <div className="button-row">
