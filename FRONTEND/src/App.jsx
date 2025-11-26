@@ -5,9 +5,10 @@ import ConsultaPage from './pages/ConsultaPage';
 import StepCanhoto from './pages/StepCanhoto';
 import StepCarga from './pages/StepCarga';
 import StepConferencia from './pages/StepConferencia';
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { initOfflineSync } from "./utils/offlineSync";
 import Toasts from "./components/Toasts";
+import { registerSW } from 'virtual:pwa-register';
 
 export default function App() {
   const [toasts, setToasts] = useState([]);
@@ -23,15 +24,15 @@ export default function App() {
     setToasts((s) => s.filter((t) => t.id !== id));
   }, []);
 
+  const swUpdateRef = useRef(null);
+
   useEffect(() => {
-    // Inicializa sincronizador offline que reenviará itens pendentes ao reconectar
     initOfflineSync({
       onItemSent: (item) => {
         addToast(`Envio automático concluído para documento ${item.documentNumber}`, "success");
       },
     });
 
-    // Escuta eventos quando um upload for enfileirado
     const handler = (e) => {
       const detail = e.detail || {};
       addToast(
@@ -44,6 +45,26 @@ export default function App() {
     return () => {
       window.removeEventListener("offline-upload-enqueued", handler);
     };
+  }, [addToast]);
+
+  useEffect(() => {
+    try {
+      const update = registerSW({
+        onNeedRefresh() {
+          addToast('Nova versão disponível. Você pode atualizar para aplicar as mudanças.', 'info', { duration: 10000 });
+          try {
+            const want = window.confirm('Nova versão disponível. Deseja atualizar agora? (Se confirmar, a página será recarregada)');
+            if (want) {
+              if (typeof update === 'function') update();
+            }
+          } catch (e) { }
+        },
+        onOfflineReady() {
+          addToast('Aplicação pronta para uso offline.', 'info', { duration: 5000 });
+        }
+      });
+      swUpdateRef.current = update;
+    } catch (e) { }
   }, [addToast]);
 
   return (
