@@ -13,7 +13,6 @@ import "../styles/UploadPage.css";
 
 export default function StepCarga({ modal = false, onClose, initialDocumentNumber = null }) {
   const navigate = useNavigate();
-
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
@@ -23,14 +22,21 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
     carga1: null,
     carga2: null,
   });
+
   const [resetKey, setResetKey] = useState(0);
 
-  const [feedback, setFeedback] = useState(null);
+  const [feedback, setFeedback] = useState({
+    placa: null,
+    carga1: null,
+    carga2: null,
+    geral: null,
+  });
+
   const [loadingImage, setLoadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmStage, setConfirmStage] = useState("ask"); // "ask" | "success"
+  const [confirmStage, setConfirmStage] = useState("ask");
 
   const formatDoc = (value) => {
     let digits = value.replace(/\D/g, "");
@@ -40,7 +46,6 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
     return digits;
   };
 
-  // Preenche automaticamente a partir do parâmetro `nf` e remove o param
   useEffect(() => {
     if (initialDocumentNumber) {
       setDocumentNumber(initialDocumentNumber);
@@ -49,23 +54,22 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
 
     const nf = searchParams.get("nf");
     if (!nf) return;
+
     const formatted = formatDoc(nf);
     if (formatted) {
       setDocumentNumber(formatted);
-      // Remove o parâmetro da URL para não gerar redundância no histórico
       navigate(location.pathname, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialDocumentNumber]);
 
   const handleFileChange = async (field, file, nomeMessage) => {
     if (!file) return;
 
     setLoadingImage(true);
-    setFeedback({
-      type: "warning",
-      text: `Carregando foto ${nomeMessage}, aguarde...`,
-    });
+    setFeedback((prev) => ({
+      ...prev,
+      [field]: { type: "warning", text: `Carregando foto ${nomeMessage}, aguarde...` },
+    }));
 
     try {
       const compressed = await imageCompression(file, {
@@ -79,16 +83,16 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
         [field]: compressed,
       }));
 
-      setFeedback({
-        type: "success",
-        text: `Foto ${nomeMessage} carregada com sucesso.`,
-      });
+      setFeedback((prev) => ({
+        ...prev,
+        [field]: { type: "success", text: `Foto ${nomeMessage} carregada com sucesso.` },
+      }));
     } catch (err) {
       console.error(err);
-      setFeedback({
-        type: "error",
-        text: "Erro ao processar imagem.",
-      });
+      setFeedback((prev) => ({
+        ...prev,
+        [field]: { type: "error", text: "Erro ao processar imagem." },
+      }));
     } finally {
       setLoadingImage(false);
     }
@@ -99,10 +103,11 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
       ...prev,
       [field]: null,
     }));
-    setFeedback({
-      type: "warning",
-      text: `Foto ${nomeMessage} removida com sucesso.`,
-    });
+
+    setFeedback((prev) => ({
+      ...prev,
+      [field]: { type: "warning", text: `Foto ${nomeMessage} removida com sucesso.` },
+    }));
   };
 
   const validateBeforeSend = () => {
@@ -122,7 +127,10 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
     e.preventDefault();
     const error = validateBeforeSend();
     if (error) {
-      setFeedback({ type: "warning", text: error });
+      setFeedback((prev) => ({
+        ...prev,
+        geral: { type: "warning", text: error },
+      }));
       return;
     }
     setConfirmStage("ask");
@@ -132,7 +140,7 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
   const resetPage = () => {
     setDocumentNumber("");
     setFiles({ placa: null, carga1: null, carga2: null });
-    setFeedback(null);
+    setFeedback({ placa: null, carga1: null, carga2: null, geral: null });
     setResetKey((k) => k + 1);
   };
 
@@ -155,12 +163,19 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
         if (files.carga1) filesMap.carga1 = await fileToDataUrl(files.carga1);
         if (files.carga2) filesMap.carga2 = await fileToDataUrl(files.carga2);
 
-        await savePendingUpload({ documentNumber, files: filesMap, meta: { step: "carga" } });
-
-        setFeedback({
-          type: "warning",
-          text: "Sem conexão. Envio enfileirado e será enviado automaticamente quando a internet for restabelecida.",
+        await savePendingUpload({
+          documentNumber,
+          files: filesMap,
+          meta: { step: "carga" },
         });
+
+        setFeedback((prev) => ({
+          ...prev,
+          geral: {
+            type: "warning",
+            text: "Sem conexão. Envio enfileirado e será enviado automaticamente quando a internet for restabelecida.",
+          },
+        }));
 
         setTimeout(() => {
           setShowConfirmModal(false);
@@ -190,7 +205,7 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
       }
 
       setConfirmStage("success");
-      setFeedback(null);
+      setFeedback((prev) => ({ ...prev, geral: null }));
 
       setTimeout(() => {
         setShowConfirmModal(false);
@@ -204,7 +219,11 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
         ? "Erro de conexão com o servidor."
         : err.message;
 
-      setFeedback({ type: "error", text: msg });
+      setFeedback((prev) => ({
+        ...prev,
+        geral: { type: "error", text: msg },
+      }));
+
       setIsSubmitting(false);
       setShowConfirmModal(false);
       setConfirmStage("ask");
@@ -230,61 +249,57 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
 
           <form className="upload-form" onSubmit={handleOpenConfirmModal}>
             <div className="upload-form-group">
-              <label htmlFor="documentNumber-carga">
-                Número do Documento
-              </label>
+              <label htmlFor="documentNumber-carga">Número do Documento</label>
               <input
                 id="documentNumber-carga"
                 type="text"
                 placeholder="Ex: 04-021832"
                 value={documentNumber}
-                onChange={(e) =>
-                  setDocumentNumber(formatDoc(e.target.value))
-                }
+                onChange={(e) => setDocumentNumber(formatDoc(e.target.value))}
               />
             </div>
 
             <FileInput
               label="Foto da Placa do Transporte"
               fileType="foto"
-              onChange={(e) =>
-                handleFileChange("placa", e.target.files[0], "da Placa")
-              }
+              onChange={(e) => handleFileChange("placa", e.target.files[0], "da Placa")}
               onClear={() => handleRemoveFile("placa", "da Placa")}
               resetKey={resetKey}
             />
+            {feedback.placa && (
+              <FeedbackMessage
+                type={feedback.placa.type}
+                text={feedback.placa.text}
+              />
+            )}
 
             <FileInput
               label="Primeira Foto da Carga (Dentro do transporte)"
               fileType="foto"
-              onChange={(e) =>
-                handleFileChange(
-                  "carga1",
-                  e.target.files[0],
-                  "da Primeira Carga"
-                )
-              }
-              onClear={() =>
-                handleRemoveFile("carga1", "da Primeira Carga")
-              }
+              onChange={(e) => handleFileChange("carga1", e.target.files[0], "da Primeira Carga")}
+              onClear={() => handleRemoveFile("carga1", "da Primeira Carga")}
               resetKey={resetKey}
             />
+            {feedback.carga1 && (
+              <FeedbackMessage
+                type={feedback.carga1.type}
+                text={feedback.carga1.text}
+              />
+            )}
 
             <FileInput
               label="Segunda Foto da Carga (Dentro do transporte)"
               fileType="foto"
-              onChange={(e) =>
-                handleFileChange(
-                  "carga2",
-                  e.target.files[0],
-                  "da Segunda Carga"
-                )
-              }
-              onClear={() =>
-                handleRemoveFile("carga2", "da Segunda Carga")
-              }
+              onChange={(e) => handleFileChange("carga2", e.target.files[0], "da Segunda Carga")}
+              onClear={() => handleRemoveFile("carga2", "da Segunda Carga")}
               resetKey={resetKey}
             />
+            {feedback.carga2 && (
+              <FeedbackMessage
+                type={feedback.carga2.type}
+                text={feedback.carga2.text}
+              />
+            )}
 
             <div className="button-row">
               <button
@@ -298,6 +313,7 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
               >
                 Cancelar
               </button>
+
               <button
                 type="submit"
                 className="primary-btn"
@@ -308,25 +324,26 @@ export default function StepCarga({ modal = false, onClose, initialDocumentNumbe
             </div>
           </form>
 
-          {feedback && (
-            <FeedbackMessage type={feedback.type} text={feedback.text} />
+          {feedback.geral && (
+            <FeedbackMessage
+              type={feedback.geral.type}
+              text={feedback.geral.text}
+            />
           )}
         </div>
       </main>
 
       {showConfirmModal && (
         <div className="send-confirm-backdrop">
-          <div
-            className="send-confirm-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="send-confirm-modal" onClick={(e) => e.stopPropagation()}>
             {confirmStage === "ask" && (
               <>
                 <h2 className="send-confirm-title">Confirmar envio</h2>
                 <p className="send-confirm-text">
-                  Deseja enviar as fotos de <strong>Carga</strong> para o
-                  documento <strong>{documentNumber}</strong>?
+                  Deseja enviar as fotos de <strong>Carga</strong> para o documento{" "}
+                  <strong>{documentNumber}</strong>?
                 </p>
+
                 <div className="send-confirm-actions">
                   <button
                     type="button"
