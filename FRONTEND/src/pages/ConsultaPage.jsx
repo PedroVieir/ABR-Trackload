@@ -29,15 +29,17 @@ export default function ConsultaDocumentos() {
   // Filtros
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [pendingSearch, setPendingSearch] = useState("");
-  const [pendingFilterDate, setPendingFilterDate] = useState(() => today);
+  const [pendingFilterDateFrom, setPendingFilterDateFrom] = useState(() => today);
+  const [pendingFilterDateTo, setPendingFilterDateTo] = useState("");
   const [pendingSortOrder, setPendingSortOrder] = useState("desc");
-  const [pendingOnlyComplete, setPendingOnlyComplete] = useState(false);
+  const [pendingOnlyIncomplete, setPendingOnlyIncomplete] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState({
     search: "",
     searchType: "ambos",
-    data: today, // sempre iniciar com a data atual
+    dateFrom: today, // sempre iniciar com a data atual
+    dateTo: "",
     sortOrder: "desc",
-    onlyComplete: false,
+    onlyIncomplete: false,
   });
 
   // Modal de preview
@@ -88,9 +90,10 @@ export default function ConsultaDocumentos() {
           ...prev,
           search: "",
           searchType: "ambos",
-          data: today,
+          dateFrom: today,
+          dateTo: "",
           sortOrder: "desc",
-          onlyComplete: false,
+          onlyIncomplete: false,
         }));
       } catch (err) {
         console.error(err);
@@ -113,7 +116,7 @@ export default function ConsultaDocumentos() {
           setDocumentsCache(parsed.data);
           setLoading(false);
           // garante filtro inicial com data de hoje
-          setAppliedFilters((prev) => ({ ...prev, data: today }));
+          setAppliedFilters((prev) => ({ ...prev, dateFrom: today, dateTo: "" }));
           return;
         }
       }
@@ -305,15 +308,34 @@ export default function ConsultaDocumentos() {
       });
     }
 
-    // If a date is set, filter by it. If `data` is empty, search across all dates.
-    if (appliedFilters.data) {
-      result = result.filter(
-        (d) => d.data && d.data.startsWith(appliedFilters.data)
-      );
+    // Date filtering: support single date (`dateFrom` only) or range (`dateFrom` and `dateTo`).
+    if (appliedFilters.dateFrom || appliedFilters.dateTo) {
+      if (appliedFilters.dateFrom && !appliedFilters.dateTo) {
+        // single day
+        result = result.filter(
+          (d) => d.data && d.data.startsWith(appliedFilters.dateFrom)
+        );
+      } else if (appliedFilters.dateFrom && appliedFilters.dateTo) {
+        // inclusive range
+        const from = parseToDate(appliedFilters.dateFrom);
+        const toDate = parseToDate(appliedFilters.dateTo);
+        const to = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate(), 23, 59, 59, 999);
+        result = result.filter((d) => {
+          const dd = parseToDate(d.data);
+          if (!dd) return false;
+          return dd >= from && dd <= to;
+        });
+      } else if (!appliedFilters.dateFrom && appliedFilters.dateTo) {
+        // only end date provided: treat as single day for the end date
+        result = result.filter(
+          (d) => d.data && d.data.startsWith(appliedFilters.dateTo)
+        );
+      }
     }
 
-    if (appliedFilters.onlyComplete) {
-      result = result.filter((doc) => isDocComplete(doc));
+    if (appliedFilters.onlyIncomplete) {
+      // show NFs that are missing at least one category
+      result = result.filter((doc) => !isDocComplete(doc));
     }
 
     result.sort((a, b) => {
@@ -505,30 +527,34 @@ export default function ConsultaDocumentos() {
     setPendingSearch(qFormatted);
 
     // If there is a search query, perform the search across all data
-    // (do not limit by the selected date). Otherwise, always apply a date.
-    const dataToApply = qFormatted ? "" : (pendingFilterDate || today);
+    // (do not limit by the selected date). Otherwise, apply the selected date range.
+    const dateFrom = qFormatted ? "" : (pendingFilterDateFrom || today);
+    const dateTo = qFormatted ? "" : (pendingFilterDateTo || "");
 
     setAppliedFilters({
       search: qFormatted,
       searchType: type,
-      data: dataToApply,
+      dateFrom,
+      dateTo,
       sortOrder: pendingSortOrder,
-      onlyComplete: pendingOnlyComplete,
+      onlyIncomplete: pendingOnlyIncomplete,
     });
     setPage(1);
   };
 
   const resetFilters = () => {
     setPendingSearch("");
-    setPendingFilterDate(today);
-    setPendingOnlyComplete(false);
+    setPendingFilterDateFrom(today);
+    setPendingFilterDateTo("");
+    setPendingOnlyIncomplete(false);
     setPendingSortOrder("desc");
     setAppliedFilters({
       search: "",
       searchType: "ambos",
-      data: today,
+      dateFrom: today,
+      dateTo: "",
       sortOrder: "desc",
-      onlyComplete: false,
+      onlyIncomplete: false,
     });
     setPage(1);
   };
@@ -660,10 +686,12 @@ export default function ConsultaDocumentos() {
                   : "NF ou Cliente"
               })`
               : ""}
-            {appliedFilters.data
-              ? ` · Data ${formatDate(appliedFilters.data)}`
+            {(appliedFilters.dateFrom || appliedFilters.dateTo)
+              ? (appliedFilters.dateFrom && appliedFilters.dateTo
+                ? ` · Data ${formatDate(appliedFilters.dateFrom)} a ${formatDate(appliedFilters.dateTo)}`
+                : ` · Data ${formatDate(appliedFilters.dateFrom || appliedFilters.dateTo)}`)
               : ""}
-            {appliedFilters.onlyComplete ? " · Somente NF completas" : ""}
+            {appliedFilters.onlyIncomplete ? " · Somente NF incompletas" : ""}
           </span>
         </div>
 
@@ -672,20 +700,32 @@ export default function ConsultaDocumentos() {
           <section className="filters-panel">
             <div className="filter-group">
               <span className="filter-label">Data</span>
-              <div className="filter-dates">
+              <div className="filter-dates" style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <label>
-                  Selecionar
+                  De
                   <input
                     type="date"
-                    value={pendingFilterDate}
+                    value={pendingFilterDateFrom}
                     onChange={(e) =>
-                      // nunca permitir vazio: se estiver vazio, usa hoje
-                      setPendingFilterDate(e.target.value || today)
+                      // nunca permitir vazio no "De": se estiver vazio, usa hoje
+                      setPendingFilterDateFrom(e.target.value || today)
                     }
                   />
                 </label>
+                <label>
+                  Até
+                  <input
+                    type="date"
+                    value={pendingFilterDateTo}
+                    onChange={(e) =>
+                      // permitir vazio para indicar apenas data única
+                      setPendingFilterDateTo(e.target.value)
+                    }
+                  />
+                </label>
+                <small style={{ fontSize: 12, color: "#666" }}>Deixe "Até" vazio para filtrar por um único dia</small>
               </div>
-            </div>
+            </div> 
 
             <div className="filter-group">
               <span className="filter-label">Ordenar por</span>
@@ -718,12 +758,12 @@ export default function ConsultaDocumentos() {
               <label className="filter-checkbox">
                 <input
                   type="checkbox"
-                  checked={pendingOnlyComplete}
+                  checked={pendingOnlyIncomplete}
                   onChange={(e) =>
-                    setPendingOnlyComplete(e.target.checked)
+                    setPendingOnlyIncomplete(e.target.checked)
                   }
                 />
-                Mostrar apenas NF com Conferência, Carga e Canhoto
+                Mostrar apenas NF incompletas (faltando pelo menos uma imagem)
               </label>
               <div
                 style={{

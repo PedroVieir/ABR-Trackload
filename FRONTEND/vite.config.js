@@ -69,13 +69,13 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     https: {
-      key: './10.0.0.48-key.pem',
-      cert: './10.0.0.48.pem'
+      key: './10.0.0.46-key.pem',
+      cert: './10.0.0.46.pem'
     },
     open: false,
     proxy: {
       '/api': {
-        target: 'http://10.0.0.48:5050/',
+        target: 'http://10.0.0.46:5050/',
         changeOrigin: true,
         secure: false
       }
